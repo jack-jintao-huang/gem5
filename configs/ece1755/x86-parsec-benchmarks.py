@@ -154,8 +154,8 @@ processor = SimpleSwitchableProcessor(
     num_cores=NUM_CORES,
 )
 # Here we tell the KVM CPU (the starting CPU) not to use perf.
-for proc in processor.start:
-    proc.core.usePerf = False
+# for proc in processor.start:
+#     proc.core.usePerf = False
 
 # Here we setup the board. The X86Board allows for Full-System X86 simulations
 
