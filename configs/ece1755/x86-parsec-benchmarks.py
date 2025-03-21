@@ -114,6 +114,13 @@ parser.add_argument(
     help="Simulation size the benchmark program.",
     choices=size_choices,
 )
+
+parser.add_argument(
+    "--num-cores",
+    type=int,
+    default=8,
+    help="Number of cores to simulate. Default is 8.",
+)
 args = parser.parse_args()
 
 # Setting up all the fixed system parameters here
@@ -145,13 +152,11 @@ memory = DualChannelDDR4_2400(size="3GiB")
 # we start with KVM cores to simulate the OS boot, then switch to the Timing
 # cores for the command we wish to run after boot.
 
-NUM_CORES = 8
-
 processor = SimpleSwitchableProcessor(
     starting_core_type=CPUTypes.KVM,
     switch_core_type=CPUTypes.TIMING,
     isa=ISA.X86,
-    num_cores=NUM_CORES,
+    num_cores=args.num_cores,
 )
 # Here we tell the KVM CPU (the starting CPU) not to use perf.
 # for proc in processor.start:
@@ -182,7 +187,7 @@ board = X86Board(
 command = (
     f"cd /home/gem5/parsec-benchmark;"
     + "source env.sh;"
-    + f"parsecmgmt -a run -p {args.benchmark} -c gcc-hooks -i {args.size}         -n {NUM_CORES};"
+    + f"parsecmgmt -a run -p {args.benchmark} -c gcc-hooks -i {args.size}         -n {args.num_cores};"
     + "sleep 5;"
     + "m5 exit;"
 )

@@ -38,35 +38,61 @@ Characteristics
 * Will boot but requires a user to login using `m5term` (username: `root`,
   password: `root`)
 """
+import argparse
 
 from gem5.components.boards.riscv_board import RiscvBoard
 from gem5.components.cachehierarchies.classic.private_l1_private_l2_walk_cache_hierarchy import (
     PrivateL1PrivateL2WalkCacheHierarchy,
 )
+from gem5.components.cachehierarchies.ruby.mesi_two_level_cache_hierarchy import (
+    MESITwoLevelCacheHierarchy,
+)
 from gem5.components.memory import SingleChannelDDR3_1600
 from gem5.components.processors.cpu_types import CPUTypes
 from gem5.components.processors.simple_processor import SimpleProcessor
 from gem5.isas import ISA
-from gem5.resources.resource import obtain_resource, DiskImageResource
+from gem5.resources.resource import (
+    DiskImageResource,
+    obtain_resource,
+)
 from gem5.simulate.simulator import Simulator
 from gem5.utils.requires import requires
 
 # Run a check to ensure the right version of gem5 is being used.
 requires(isa_required=ISA.RISCV)
 
+parser = argparse.ArgumentParser(
+    description="Run a simple RISC-V full system boot with a disk image"
+)
+parser.add_argument(
+    "--num-cores",
+    type=int,
+    default=8,
+    help="Number of cores to use in the simulation, default is 8",
+)
+
+args = parser.parse_args()
 # Setup the cache hierarchy.
 # For classic, PrivateL1PrivateL2 and NoCache have been tested.
 # For Ruby, MESI_Two_Level and MI_example have been tested.
-cache_hierarchy = PrivateL1PrivateL2WalkCacheHierarchy(
-    l1d_size="32KiB", l1i_size="32KiB", l2_size="512KiB"
+# cache_hierarchy = PrivateL1PrivateL2WalkCacheHierarchy(
+#     l1d_size="32KiB", l1i_size="32KiB", l2_size="512KiB"
+# )
+cache_hierarchy = MESITwoLevelCacheHierarchy(
+    l1d_size="32KiB",
+    l1d_assoc=8,
+    l1i_size="32KiB",
+    l1i_assoc=8,
+    l2_size="256KiB",
+    l2_assoc=16,
+    num_l2_banks=2,
 )
-
 # Setup the system memory.
 memory = SingleChannelDDR3_1600()
 
 # Setup a single core Processor.
 processor = SimpleProcessor(
-    cpu_type=CPUTypes.TIMING, isa=ISA.RISCV, num_cores=1
+    cpu_type=CPUTypes.TIMING, isa=ISA.RISCV, num_cores=args.num_cores
 )
 
 # Setup the board.
@@ -84,15 +110,17 @@ board = RiscvBoard(
 #     + "sleep 5;"
 #     + "m5 exit;"
 # )
-disk = DiskImageResource(local_path="/home/jack-huang/riscv/out/riscv_parsec_disk", root_partition="1")
-kernel_args = ["console=ttyS0", "root=/dev/vda", "ro"]
+kernel_args = ["console=ttyS0", "root=/dev/vda", "rw"]
 # Set the Full System workload.
 board.set_kernel_disk_workload(
     kernel=obtain_resource(
         "riscv-bootloader-vmlinux-5.10", resource_version="1.0.0"
     ),
     # disk_image=obtain_resource("riscv-disk-img", resource_version="1.0.0"),
-    disk_image=disk,
+    disk_image=DiskImageResource(
+        local_path="/home/jack/ece1755/riscv/out/riscv_parsec_disk",
+        root_partition="1",
+    ),
     kernel_args=kernel_args,
     # readfile_contents=command,
 )
