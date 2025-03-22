@@ -85,7 +85,7 @@ cache_hierarchy = MESITwoLevelCacheHierarchy(
     l1i_assoc=8,
     l2_size="256KiB",
     l2_assoc=16,
-    num_l2_banks=2,
+    num_l2_banks=args.num_cores,
 )
 # Setup the system memory.
 memory = SingleChannelDDR3_1600()
