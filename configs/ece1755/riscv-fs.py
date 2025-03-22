@@ -118,7 +118,7 @@ board.set_kernel_disk_workload(
     ),
     # disk_image=obtain_resource("riscv-disk-img", resource_version="1.0.0"),
     disk_image=DiskImageResource(
-        local_path="/home/jack/ece1755/riscv/out/riscv_parsec_disk",
+        local_path="/home/jack-huang/riscv/out/riscv_parsec_disk",
         root_partition="1",
     ),
     kernel_args=kernel_args,

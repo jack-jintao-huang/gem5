@@ -42,6 +42,7 @@ scons build/X86/gem5.opt
     configs/example/gem5_library/x86-parsec-benchmarks.py \
     --benchmark <benchmark_name> \
     --size <simulation_size>
+    --num-cores <number_of_cores>
 ```
 """
 import argparse
@@ -137,7 +138,7 @@ cache_hierarchy = MESITwoLevelCacheHierarchy(
     l1i_assoc=8,
     l2_size="256KiB",
     l2_assoc=16,
-    num_l2_banks=2,
+    num_l2_banks=args.num_cores,
 )
 
 # Memory: Dual Channel DDR4 2400 DRAM device.
