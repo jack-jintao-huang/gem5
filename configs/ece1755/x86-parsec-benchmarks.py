@@ -54,6 +54,7 @@ from m5.objects import Root
 from gem5.coherence_protocol import CoherenceProtocol
 from gem5.components.boards.x86_board import X86Board
 from gem5.components.memory import DualChannelDDR4_2400
+from gem5.components.memory import HBM2Stack
 from gem5.components.processors.cpu_types import CPUTypes
 from gem5.components.processors.simple_switchable_processor import (
     SimpleSwitchableProcessor,
@@ -136,7 +137,7 @@ cache_hierarchy = MESITwoLevelCacheHierarchy(
     l1d_assoc=8,
     l1i_size="32KiB",
     l1i_assoc=8,
-    l2_size="256KiB",
+    l2_size="512KiB",
     l2_assoc=16,
     num_l2_banks=args.num_cores,
 )
@@ -144,7 +145,7 @@ cache_hierarchy = MESITwoLevelCacheHierarchy(
 # Memory: Dual Channel DDR4 2400 DRAM device.
 # The X86 board only supports 3 GiB of main memory.
 
-memory = DualChannelDDR4_2400(size="3GiB")
+memory = HBM2Stack(size="3GiB")
 
 # Here we setup the processor. This is a special switchable processor in which
 # a starting core type and a switch core type must be specified. Once a
@@ -155,7 +156,7 @@ memory = DualChannelDDR4_2400(size="3GiB")
 
 processor = SimpleSwitchableProcessor(
     starting_core_type=CPUTypes.KVM,
-    switch_core_type=CPUTypes.TIMING,
+    switch_core_type=CPUTypes.O3,
     isa=ISA.X86,
     num_cores=args.num_cores,
 )

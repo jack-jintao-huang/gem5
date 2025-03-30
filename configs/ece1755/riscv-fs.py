@@ -39,7 +39,7 @@ Characteristics
   password: `root`)
 """
 import argparse
-
+import m5
 from gem5.components.boards.riscv_board import RiscvBoard
 from gem5.components.cachehierarchies.classic.private_l1_private_l2_walk_cache_hierarchy import (
     PrivateL1PrivateL2WalkCacheHierarchy,
@@ -47,7 +47,7 @@ from gem5.components.cachehierarchies.classic.private_l1_private_l2_walk_cache_h
 from gem5.components.cachehierarchies.ruby.mesi_two_level_cache_hierarchy import (
     MESITwoLevelCacheHierarchy,
 )
-from gem5.components.memory import SingleChannelDDR3_1600
+from gem5.components.memory import SingleChannelDDR3_1600, HBM2Stack
 from gem5.components.processors.cpu_types import CPUTypes
 from gem5.components.processors.simple_processor import SimpleProcessor
 from gem5.isas import ISA
@@ -57,12 +57,50 @@ from gem5.resources.resource import (
 )
 from gem5.simulate.simulator import Simulator
 from gem5.utils.requires import requires
-
+from gem5.components.processors.simple_switchable_processor import (
+    SimpleSwitchableProcessor,
+)
+from gem5.simulate.exit_event import ExitEvent
 # Run a check to ensure the right version of gem5 is being used.
 requires(isa_required=ISA.RISCV)
 
+benchmark_choices = [
+    "blackscholes",
+    "bodytrack",
+    "canneal",
+    "dedup",
+    "facesim",
+    "ferret",
+    "fluidanimate",
+    "freqmine",
+    "raytrace",
+    "streamcluster",
+    "swaptions",
+    "vips",
+    "x264",
+]
+
+# Following are the input size.
+
+size_choices = ["simsmall", "simmedium", "simlarge"]
+
 parser = argparse.ArgumentParser(
     description="Run a simple RISC-V full system boot with a disk image"
+)
+parser.add_argument(
+    "--benchmark",
+    type=str,
+    required=True,
+    help="Input the benchmark program to execute.",
+    choices=benchmark_choices,
+)
+
+parser.add_argument(
+    "--size",
+    type=str,
+    required=True,
+    help="Simulation size the benchmark program.",
+    choices=size_choices,
 )
 parser.add_argument(
     "--num-cores",
@@ -83,34 +121,53 @@ cache_hierarchy = MESITwoLevelCacheHierarchy(
     l1d_assoc=8,
     l1i_size="32KiB",
     l1i_assoc=8,
-    l2_size="256KiB",
+    l2_size="512KiB",
     l2_assoc=16,
     num_l2_banks=args.num_cores,
 )
 # Setup the system memory.
-memory = SingleChannelDDR3_1600()
+# memory = SingleChannelDDR3_1600()
+memory = HBM2Stack(size="3GiB")
 
 # Setup a single core Processor.
-processor = SimpleProcessor(
-    cpu_type=CPUTypes.TIMING, isa=ISA.RISCV, num_cores=args.num_cores
+# processor = SimpleProcessor(
+#     cpu_type=CPUTypes.TIMING, isa=ISA.RISCV, num_cores=args.num_cores
+# )
+
+processor = SimpleSwitchableProcessor(
+    starting_core_type=CPUTypes.ATOMIC,
+    switch_core_type=CPUTypes.O3,
+    isa=ISA.RISCV,
+    num_cores=args.num_cores,
 )
 
 # Setup the board.
 board = RiscvBoard(
-    clk_freq="1GHz",
+    clk_freq="3GHz",
     processor=processor,
     memory=memory,
     cache_hierarchy=cache_hierarchy,
 )
 # command to run the benchmark
-# command = (
-#     f"cd /home/gem5/parsec-benchmark;"
-#     + "source env.sh;"
-#     + f"parsecmgmt -a run -p {benchmark} -c gcc-hooks -i {args.size}         -n {NUM_CORES};"
-#     + "sleep 5;"
-#     + "m5 exit;"
-# )
-kernel_args = ["console=ttyS0", "root=/dev/vda", "rw"]
+command = (
+    # f"cd /home/gem5/parsec-benchmark;"
+    # + "source env.sh;"
+    # + f"parsecmgmt -a run -p {benchmark} -c gcc-hooks -i {args.size}         -n {NUM_CORES};"
+    # + "sleep 5;"
+    # + "m5 exit;"
+    f"cd /home/images/{args.benchmark}/{args.size};"
+    f"m5 workbegin;"
+    f"./run.sh {args.num_cores};"
+)
+def handle_bootdone():
+    print("Done booting Linux")
+    print("Resetting stats at the start of ROI!")
+    m5.stats.reset()
+    processor.switch()
+    yield False
+
+
+kernel_args = ["console=ttyS0", "root=/dev/vda", "rw", "init=/sbin/init"]
 # Set the Full System workload.
 board.set_kernel_disk_workload(
     kernel=obtain_resource(
@@ -122,10 +179,13 @@ board.set_kernel_disk_workload(
         root_partition="1",
     ),
     kernel_args=kernel_args,
-    # readfile_contents=command,
+    readfile_contents=command,
 )
 
-simulator = Simulator(board=board)
+simulator = Simulator(
+    board=board,
+    on_exit_event={ExitEvent.WORKBEGIN: handle_bootdone()},
+    )
 print("Beginning simulation!")
 # Note: This simulation will never stop. You can access the terminal upon boot
 # using m5term (`./util/term`): `./m5term localhost <port>`. Note the `<port>`

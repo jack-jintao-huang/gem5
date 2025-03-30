@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 
 # List of available PARSEC benchmarks
 benchmarks=(
@@ -21,16 +21,25 @@ benchmarks=(
 sizes=(simsmall
 #  simmedium 
 #  simlarge
- )
+)
 
-# TODO NUM_CORES
+num_cores=(
+    1
+    4
+    8
+    16
+    32
+)
 
 for bm in "${benchmarks[@]}"; do
     for sz in "${sizes[@]}"; do
-        outdir="results/${bm}_${sz}"
-        mkdir -p "$outdir"
-        ./build/X86/gem5.opt --outdir="$outdir" configs/ece1755/x86-parsec-benchmarks.py \
-            --benchmark "$bm" \
-            --size "$sz"
+        for nc in "${num_cores[@]}"; do
+            outdir="results/${bm}_${sz}_${nc}"
+            mkdir -p "$outdir"
+            ./build/X86/gem5.opt --outdir="$outdir" configs/ece1755/x86-parsec-benchmarks.py \
+                --benchmark "$bm" \
+                --size "$sz" \
+                --num-cores "$nc"
+        done
     done
 done
